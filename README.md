@@ -35,6 +35,7 @@ When makjing contributions to a new component of the analysis, please create a n
     │                         generated with `pip freeze > requirements.txt`
     │
     ├── setup.py           <- makes project pip installable (pip install -e .) so src can be imported
+    │
     ├── src                <- Source code for use in this project.
     │   ├── data           <- Scripts to download or generate data
     │   │
