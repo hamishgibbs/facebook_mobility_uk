@@ -3,7 +3,7 @@ facebook_mobility_uk
 
 Mobility analysis in the UK.
 
-This project structure is based on the `cookiecutterdatascience` default data science project. Some changes have been made to the default directory structure.
+This project structure is based on the [`cookiecutterdatascience`](https://drivendata.github.io/cookiecutter-data-science/) default data science project. Some changes have been made to the default directory structure.
 
 ## Contributions
 
@@ -51,5 +51,3 @@ Feel free to contribute targets to the Makefile for routine data processing task
 
 
 --------
-
-<p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
