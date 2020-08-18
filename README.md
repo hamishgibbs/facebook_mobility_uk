@@ -1,7 +1,9 @@
 facebook_mobility_uk
 ==============================
 
-Mobility analysis in the UK
+Mobility analysis in the UK.
+
+This project structure is based on the `cookiecutterdatascience` default data science project. Some changes have been bade to the default directory structure.
 
 Project Organization
 ------------
