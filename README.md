@@ -43,7 +43,7 @@ When makjing contributions to a new component of the analysis, please create a n
     │   ├── visualization  <- Scripts to generate data visualisations (output in reports/figures)
     │   │
     │   ├── utils           <- Basic dataset relevant utilties
-    │   │
+    │   
     └── tox.ini            <- tox file with settings for running tox; see tox.readthedocs.io
 
 
