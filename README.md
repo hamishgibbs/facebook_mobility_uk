@@ -7,7 +7,7 @@ This project structure is based on the `cookiecutterdatascience` default data sc
 
 ## Contributions
 
-When makjing contributions to a new component of the analysis, please create a new subdirectory in `src/analysis`, `src/visualization`, and `src/data`. A basic summary of the project strucutre is included below.
+When makjing contributions to a new component of the analysis, please create a new subdirectory in `src/analysis`, `src/visualization`, and `src/data`. A basic summary of the project structure is included below.
 
 ## Project Organization
 
