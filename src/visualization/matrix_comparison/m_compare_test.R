@@ -8,7 +8,7 @@ source('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/src/visualiza
 if(interactive()){
   .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/canberra_distance/c_dist_test.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/matrix_comparison_test.png')
+              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/matrix_comparison.png')
 } else {
   .args <- commandArgs(trailingOnly = T)
 }
@@ -30,6 +30,8 @@ p <- m_compare %>%
 
 p 
 
-#ggsave(tail(.args, 1), p,
-#       width = 6, height = 5,
-#       units = 'in')
+write_rds(p, '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/matrix_comparison.rdf')
+
+ggsave(tail(.args, 1), p,
+       width = 6, height = 5,
+       units = 'in')

@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
 source('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/src/visualization/utils/plot_default_theme.R')
 
 if(interactive()){
-  .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/mobility_days.csv',
+  .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/mobility_hours.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/oa_reference/tile_12_oa_pop.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_imd.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_mean_age.csv',
@@ -38,7 +38,7 @@ tiles <- st_read(.args[6]) %>%
   st_set_crs(4326)
 
 inter_mob <- mob %>% 
-  filter(date <= as.Date('2020-07-01')) %>% 
+  #filter(date <= as.Date('2020-07-01')) %>% 
   filter(start_quadkey == end_quadkey) %>% 
   group_by(start_quadkey) %>% 
   summarise(n_crisis = median(n_crisis, na.rm = T), .groups = 'drop') %>% 
@@ -60,13 +60,14 @@ qk_dens <- tiles %>%
 plot_comparison <- function(df, varname, ylab, p_index, log_10 = FALSE){
   
   if (log_10){
-    geom <- geom_point(aes(x = pop_ratio * 100, y = log(!! sym(varname), 10), color = country), size = 0.1)
+    geom <- geom_point(aes(x = pop_ratio * 100, y = log(!! sym(varname), 10)), size = 0.1)
   } else {
-    geom <- geom_point(aes(x = pop_ratio * 100, y = !! sym(varname), color = country), size = 0.1)
+    geom <- geom_point(aes(x = pop_ratio * 100, y = !! sym(varname)), size = 0.1)
   }
   
   p <- inter_mob %>% 
     left_join(df, by = c('start_quadkey' = 'quadkey_12')) %>% 
+    filter(pop_ratio < 1) %>% 
     ggplot() + 
     geom +
     scale_color_discrete_qualitative('Harmonic') + 
@@ -90,6 +91,10 @@ p_pop_dens <- plot_comparison(qk_dens, 'pop_dens', 'Population Density (log)', '
 p <- cowplot::plot_grid(p_imd, p_age, p_perc_white, p_pop_dens, ncol = 2)
 
 ggsave(tail(.args, 1), p,
+       width = 8.5, height = 6,
+       units = 'in')
+
+ggsave(gsub('.png', '.pdf', tail(.args, 1)), p,
        width = 8.5, height = 6,
        units = 'in')
 

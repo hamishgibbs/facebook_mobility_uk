@@ -31,22 +31,19 @@ from scipy.spatial.distance import canberra
 import itertools
 #%%
 if not hasattr(main, '__file__'):
-    argv = ['code', '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/mobility_days.csv',
+    argv = ['code', '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/mobility_days_norm.csv',
             '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv',
             '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/infomap/infomap_full.csv',
             '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/canberra_distance/c_dist_test.csv']
 else:
     argv = sys.argv
 #%%
-mob = pd.read_csv(argv[1], index_col = 0)
-a3 = pd.read_csv(argv[2])
+mob = pd.read_csv(argv[1], dtype = {'start_quadkey':str, 'end_quadkey':str})
+a3 = pd.read_csv(argv[2], dtype = {'quadkey':str})
 #%%
 #remove non UK nodes here
 mob = pd.merge(mob, a3, left_on='start_quadkey', right_on = 'quadkey').dropna(subset = ['NAME_2'])
 #%%
-mob['start_quadkey'] = ['{0:012d}'.format(n) for n in mob['start_quadkey']]
-mob['end_quadkey'] = ['{0:012d}'.format(n) for n in mob['end_quadkey']]
-
 nodes = list(np.unique(list(mob['start_quadkey'].unique()) + list(mob['end_quadkey'].unique())))
 
 #%%
@@ -59,9 +56,9 @@ mob = [mob.get_group(x) for x in mob.groups]
 mob[0]
 #%%
 #%%
-#need to have the same journeys in all time slices - 0
+#need to have the same journeys in all time slices
 
-def create_matrix(date_data):
+def create_matrix(date_data, norm = False):
     
     date = list(date_data['date'].unique())
     
@@ -76,9 +73,12 @@ def create_matrix(date_data):
     df = df[['start_quadkey', 'end_quadkey', 'n_crisis']]
     df = np.nan_to_num(df.set_index(['start_quadkey', 'end_quadkey'])['n_crisis'].unstack().values)
     
+    if norm:
+        df = df / df.sum()
+    
     return({date:df})
 #%%
-matrices = [create_matrix(df) for df in mob[0:10]]
+matrices = [create_matrix(df, norm = True) for df in mob[0:20]]
 
 #test that all mtrices are the same dims
 assert len(np.unique([list(x.values())[0].shape for x in matrices])) == 2
@@ -87,6 +87,7 @@ matrices = {k:v for element in matrices for k,v in element.items()}
 
 dates = list(matrices.keys())
 
+#%%
 '''
 canberra distance between all combinations of the matrices - if April 6 vs March 6 == March 6 vs April 6,  combinations not permutations (also for performance)
 
@@ -97,8 +98,10 @@ YES MAKE THIS CHANGE ^
 date_combos = list(itertools.combinations(dates, 2)) + [(d, d) for d in dates]
 
 c_dist = []
-for combo in date_combos:
+for i, combo in enumerate(date_combos):
     c_dist.append({'date_x':combo[0], 'date_y':combo[1], 'c_dist':canberra(matrices[combo[0]].ravel(), matrices[combo[1]].ravel())})
+    
+    print(i / len(date_combos))
 
 #%%
 df = pd.DataFrame(c_dist)
@@ -106,7 +109,8 @@ df = pd.concat([df, df.rename(columns={'date_x':'date_y', 'date_y':'date_x'})]).
 #%%
 df.to_csv(argv[-1])
 
-
+#%%
+df.to_csv('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/canberra_distance/c_dist_norm.csv')
 
 
 

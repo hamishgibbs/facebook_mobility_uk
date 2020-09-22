@@ -12,10 +12,11 @@ import geopandas as gpd
 
 if not hasattr(main, '__file__'):
     argv = ['code', '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/raw/gadm36_GBR_shp/gadm36_GBR_3.shp',
-            '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp']
+            '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_13.shp',
+            '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/oa_reference/oa_tile_reference_13.csv']
 else:
     argv = sys.argv
-    
+#%%
 a3 = gpd.read_file(argv[1])
 a3 = a3.to_crs("EPSG:27700")
 

@@ -9,6 +9,7 @@ BUCKET = [OPTIONAL] your-bucket-for-syncing-data (do not include 's3://')
 PROFILE = default
 PROJECT_NAME = facebook_mobility_uk
 PYTHON_INTERPRETER = python3
+R_INTERPRETER = /usr/local/bin/Rscript
 
 ifeq (,$(shell which conda))
 HAS_CONDA=False
@@ -26,16 +27,21 @@ requirements: test_environment
 	$(PYTHON_INTERPRETER) -m pip install -r requirements.txt
 
 ## Make Dataset
-processTileMovement: TileMovement_hours TileMovement_days
+processTileMovement: TileMovement_hours TileMovement_days TileMovement_days_norm
 
 TileMovement_hours: $(PROJECT_DIR)/data/interim/mobility_hours.csv
 
 TileMovement_days: $(PROJECT_DIR)/data/interim/mobility_days.csv
 
+TileMovement_days_norm: $(PROJECT_DIR)/data/processed/mobility_days_norm.csv
+
 $(PROJECT_DIR)/data/interim/mobility_hours.csv: $(PROJECT_DIR)/src/data/TileMovement/TileMovement_hours.py $(PROJECT_DIR)/data/raw/Britain_TileMovement
 	$(PYTHON_INTERPRETER) $^ $@
 
 $(PROJECT_DIR)/data/interim/mobility_days.csv: $(PROJECT_DIR)/src/data/TileMovement/TileMovement_days.py $(PROJECT_DIR)/data/interim/mobility_hours.csv
+	$(PYTHON_INTERPRETER) $^ $@
+
+$(PROJECT_DIR)/data/processed/mobility_days_norm.csv: $(PROJECT_DIR)/src/data/TileMovement/fb_user_prop.py $(PROJECT_DIR)/data/interim/mobility_days.csv $(PROJECT_DIR)/data/processed/oa_reference/tile_12_oa_pop.csv
 	$(PYTHON_INTERPRETER) $^ $@
 
 processAdminMovement: AdminMovement_hours TileMovement_days
@@ -127,10 +133,20 @@ $(PROJECT_DIR)/data/processed/infomap/infomap_full.csv: $(PROJECT_DIR)/src/analy
 data: requirements
 	$(PYTHON_INTERPRETER) src/data/make_dataset.py data/raw data/processed
 
+## Create figs
+figs: fb_pop
+
+fb_pop: $(PROJECT_DIR)/reports/figures/tile_oa_pop_comparison.png
+
+$(PROJECT_DIR)/reports/figures/tile_oa_pop_comparison.png: $(PROJECT_DIR)/src/visualization/crisis_baseline_comparison/visualize_tile_oa_pop.R $(PROJECT_DIR)/data/interim/mobility_hours.csv $(PROJECT_DIR)/data/processed/oa_reference/tile_12_oa_pop.csv $(PROJECT_DIR)/data/processed/tile_reference/tiles_zoom_12.shp $(PROJECT_DIR)/data/processed/la_reference/a3_tile_reference.csv
+	$(R_INTERPRETER) $^ $@
 ## Delete all compiled Python files
 clean:
 	find . -type f -name "*.py[co]" -delete
 	find . -type d -name "__pycache__" -delete
+
+.PHONY: just
+just: ;
 
 ## Lint using flake8
 lint:
