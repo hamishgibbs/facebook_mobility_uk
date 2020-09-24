@@ -1,5 +1,8 @@
 require(tidyverse)
 
+
+
+
 pathways <- readr::read_csv('https://coronavirus.data.gov.uk/downloads/csv/coronavirus-cases_latest.csv') %>% 
   rename(date = `Specimen date`) %>% 
   rename(code = `Area code`) %>% 
@@ -115,3 +118,92 @@ plot(res_nhs_region, "date") +
        y = paste0("Daily potential COVID-19 reports\n in ", pathways %>% filter(code %in% la$code) %>% pull(`Area name`) %>% unique()))
 
 par(mfrow=c(2,1))
+
+
+### NHS 111/999 data
+
+pathways <- tempfile()
+url <- paste0("https://github.com/qleclerc/nhs_pathways_report/",
+              "raw/master/data/rds/pathways_latest.rds")
+download.file(url, pathways)
+pathways <- readRDS(pathways)
+
+# add variables and subsets
+day_of_week <- function(date) {
+  day_of_week <- weekdays(date)
+  out <- dplyr::case_when(
+    day_of_week %in% c("Saturday", "Sunday") ~ "weekend",
+    day_of_week %in% c("Monday") ~ "monday",
+    TRUE ~ "rest_of_week"
+  )
+  out <- factor(out, levels = c("rest_of_week", "monday", "weekend"))
+  out
+}
+
+pathways <- pathways %>% 
+  mutate(day = as.integer(date - min(date, na.rm = TRUE)),
+         weekday = day_of_week(date))
+last_date <- as.Date("2020-06-15")
+first_date <- last_date - 8*7 #max(pathways$date, na.rm = TRUE) - 6*7
+
+pathways_recent <- pathways %>%
+  filter(date >= first_date & date <= last_date)
+
+# # ccg level
+# counts_nhs_region <- pathways_recent %>%
+#   group_by(ccg_code, date, day, weekday) %>%
+#   summarise(count = sum(count)) %>%
+#   complete(date, fill = list(count = 0)) %>% 
+#   split(.$ccg_code)
+
+# i = date loop
+# j = region loop
+for(i in 1:length(which.dates)) {
+  for(j in 1:length(which.regions)) {
+    last_date <- which.dates[i]
+    first_date <- last_date - 8*7 #max(pathways$date, na.rm = TRUE) - 6*7
+    
+    pathways_recent <- pathways %>%
+      filter(date >= first_date & date <= last_date)
+    
+    counts_nhs_region <- pathways_recent %>% filter(code == which.regions[j]) %>% 
+      group_by(ccg_code, date, day, weekday) %>%
+      summarise(count = sum(count)) %>%
+      complete(date, fill = list(count = 0)) %>% 
+      split(.$ccg_code)
+    
+    la <- counts_nhs_region[[1]]
+    
+    res_nhs_region <- trendbreaker::asmodee(la, models, method = trendbreaker::evaluate_aic, alpha = 0.5, fixed_k=7)
+    
+    if(sum(res_nhs_region$results$outlier[36:42]) >= 4 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
+      results.holder4[i, j] <- "trigger"
+    } else {
+      results.holder4[i, j] <- "normal"
+    }
+    if(sum(res_nhs_region$results$outlier[36:42]) >= 5 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
+      results.holder5[i, j] <- "trigger"
+    } else {
+      results.holder5[i, j] <- "normal"
+    }
+    if(sum(res_nhs_region$results$outlier[36:42]) >= 6 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
+      results.holder6[i, j] <- "trigger"
+    } else {
+      results.holder6[i, j] <- "normal"
+    }
+  }
+}
+
+write.csv(results.holder4, "~/Sync/LSHTM/COVID/20200924_Outlier_detection_k4_ccg.csv")
+write.csv(results.holder5, "~/Sync/LSHTM/COVID/20200924_Outlier_detection_k5_ccg.csv")
+write.csv(results.holder6, "~/Sync/LSHTM/COVID/20200924_Outlier_detection_k6_ccg.csv")
+
+
+# plot if you want to see the last one
+plot(res_nhs_region, "date") +
+  theme(text = element_text(size = 16),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_date(date_label = format("%d %b")) +
+  labs(x = NULL,
+       y = paste0("Daily potential COVID-19 reports\n in ", pathways %>% filter(ccg_code %in% la$ccg_code) %>% pull(`ccg_code`) %>% unique()))
+
