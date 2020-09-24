@@ -1,6 +1,12 @@
 require(tidyverse)
 
-
+installif (!require(remotes)) {
+  install.packages("remotes")
+}
+#remotes::install_github("reconhub/trendbreaker", force = TRUE)
+remotes::install_github("reconhub/trendbreaker@2c228ab", force = TRUE)
+library(trendbreaker)
+library(trending)
 
 
 pathways <- readr::read_csv('https://coronavirus.data.gov.uk/downloads/csv/coronavirus-cases_latest.csv') %>% 
@@ -140,6 +146,16 @@ day_of_week <- function(date) {
   out
 }
 
+# define candidate models
+models <- list(
+  regression = trending::lm_model(count ~ day),
+  poisson_constant = trending::glm_model(count ~ 1, family = "poisson"),
+  negbin_time = trending::glm_nb_model(count ~ day),
+  negbin_time_weekday = trending::glm_nb_model(count ~ day + weekday),
+  negbin_time_weekday2 = trending::glm_nb_model(count ~ day * weekday)
+)
+
+
 pathways <- pathways %>% 
   mutate(day = as.integer(date - min(date, na.rm = TRUE)),
          weekday = day_of_week(date))
@@ -156,6 +172,16 @@ pathways_recent <- pathways %>%
 #   complete(date, fill = list(count = 0)) %>% 
 #   split(.$ccg_code)
 
+# set up holder
+which.regions <- unique(pathways$ccg_code)
+which.dates <- seq(as.Date("2020-06-01"), as.Date("2020-07-31"), by="day")
+results.holder4 <- as.data.frame(matrix(nrow=length(which.dates), ncol=length(which.regions)), row.names=which.dates)
+colnames(results.holder4) <- which.regions
+results.holder5 <- as.data.frame(matrix(nrow=length(which.dates), ncol=length(which.regions)), row.names=which.dates)
+colnames(results.holder5) <- which.regions
+results.holder6 <- as.data.frame(matrix(nrow=length(which.dates), ncol=length(which.regions)), row.names=which.dates)
+colnames(results.holder6) <- which.regions
+
 # i = date loop
 # j = region loop
 for(i in 1:length(which.dates)) {
@@ -166,30 +192,42 @@ for(i in 1:length(which.dates)) {
     pathways_recent <- pathways %>%
       filter(date >= first_date & date <= last_date)
     
-    counts_nhs_region <- pathways_recent %>% filter(code == which.regions[j]) %>% 
+    counts_nhs_region <- pathways_recent %>% filter(ccg_code == "w11000023") %>% #which.regions[j]) %>% 
       group_by(ccg_code, date, day, weekday) %>%
       summarise(count = sum(count)) %>%
       complete(date, fill = list(count = 0)) %>% 
       split(.$ccg_code)
     
-    la <- counts_nhs_region[[1]]
-    
-    res_nhs_region <- trendbreaker::asmodee(la, models, method = trendbreaker::evaluate_aic, alpha = 0.5, fixed_k=7)
-    
-    if(sum(res_nhs_region$results$outlier[36:42]) >= 4 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
-      results.holder4[i, j] <- "trigger"
+    if(length(counts_nhs_region)==0) { # if no measurements for this ccg then exit
+      results.holder4[i, j] <- "nodata"
+      results.holder5[i, j] <- "nodata"
+      results.holder6[i, j] <- "nodata"
     } else {
-      results.holder4[i, j] <- "normal"
-    }
-    if(sum(res_nhs_region$results$outlier[36:42]) >= 5 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
-      results.holder5[i, j] <- "trigger"
-    } else {
-      results.holder5[i, j] <- "normal"
-    }
-    if(sum(res_nhs_region$results$outlier[36:42]) >= 6 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
-      results.holder6[i, j] <- "trigger"
-    } else {
-      results.holder6[i, j] <- "normal"
+      
+      la <- counts_nhs_region[[1]]
+      if(nrow(la) < 56) {
+        results.holder4[i, j] <- "insuffdata"
+        results.holder5[i, j] <- "insuffdata"
+        results.holder6[i, j] <- "insuffdata"
+      } else {
+        res_nhs_region <- asmodee(la, models, method = evaluate_aic, alpha = 0.5, fixed_k=7)
+        
+        if(sum(res_nhs_region$results$outlier[36:42]) >= 4 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
+          results.holder4[i, j] <- "trigger"
+        } else {
+          results.holder4[i, j] <- "normal"
+        }
+        if(sum(res_nhs_region$results$outlier[36:42]) >= 5 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
+          results.holder5[i, j] <- "trigger"
+        } else {
+          results.holder5[i, j] <- "normal"
+        }
+        if(sum(res_nhs_region$results$outlier[36:42]) >= 6 & sum(res_nhs_region$results$classification[36:42]=="increase") >= 3) {
+          results.holder6[i, j] <- "trigger"
+        } else {
+          results.holder6[i, j] <- "normal"
+        } 
+      }
     }
   }
 }
