@@ -192,7 +192,7 @@ for(i in 1:length(which.dates)) {
     pathways_recent <- pathways %>%
       filter(date >= first_date & date <= last_date)
     
-    counts_nhs_region <- pathways_recent %>% filter(ccg_code == "w11000023") %>% #which.regions[j]) %>% 
+    counts_nhs_region <- pathways_recent %>% filter(ccg_code == which.regions[j]) %>% 
       group_by(ccg_code, date, day, weekday) %>%
       summarise(count = sum(count)) %>%
       complete(date, fill = list(count = 0)) %>% 
@@ -205,7 +205,8 @@ for(i in 1:length(which.dates)) {
     } else {
       
       la <- counts_nhs_region[[1]]
-      if(nrow(la) < 56) {
+     
+      if(nrow(la) < 42) {
         results.holder4[i, j] <- "insuffdata"
         results.holder5[i, j] <- "insuffdata"
         results.holder6[i, j] <- "insuffdata"
