@@ -18,9 +18,8 @@ if(interactive()){
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/mobility_days_norm.csv',
               '/Users/hamishgibbs/Downloads/gadm36_GBR_shp (2)/gadm36_GBR_3.shp',
-              '/Users/hamishgibbs/Downloads/Local_Authority_Districts__December_2019__Boundaries_UK_BFC-shp/Local_Authority_Districts__December_2019__Boundaries_UK_BFC.shp',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/la_tile_reference.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/raw/Local_Authority_Districts__December_2017__Boundaries_in_Great_Britain-shp/la_pop.csv',
+              '/Users/hamishgibbs/Downloads/Clinical_Commissioning_Groups__April_2018__Boundaries-shp/Clinical_Commissioning_Groups__April_2018__Boundaries.shp',
+              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/ccg_tile_reference.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/label_map_geography_test.png')
 } else {
   .args <- commandArgs(trailingOnly = T)
@@ -32,11 +31,12 @@ tiles <- st_read(.args[3]) %>%
   mutate(quadkey = str_pad(quadkey, 12, pad = "0")) %>% 
   st_set_crs(4326)
 
-asm <- read_csv('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/raw/asmodee/20200923_Outlier_detection_k6.csv') %>% 
+asm <- read_csv('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/raw/asmodee/20200924_Outlier_detection_k4_ccg.csv') %>% 
   rename(date = X1) %>% 
   pivot_longer(!date, names_to = "area", values_to = "value") %>% 
-  mutate(area_type = stringr::str_sub(area, 1, 2)) %>% 
-  filter(area_type == 'E0')
+  mutate(area = stringr::str_to_upper(area))
+  #mutate(area_type = stringr::str_sub(area, 1, 2)) %>% 
+  #filter(area_type == 'E0')
 
 a3 <- read_csv(.args[4])
 
@@ -47,12 +47,12 @@ mob <- read_csv(.args[5]) %>%
 gadm <- st_read(.args[6]) %>% 
   st_simplify(dTolerance = 0.001)
 
-la <- st_read(.args[7]) %>% 
-  st_simplify(dTolerance = 0.001) %>% 
-  mutate(country = stringr::str_sub(lad19cd, 1, 1)) %>% 
-  filter(country == 'E')
+ccg <- st_read(.args[7]) %>% 
+  st_simplify(dTolerance = 0.001) #%>% 
+  #mutate(country = stringr::str_sub(lad19cd, 1, 1)) %>% 
+  #filter(country == 'E')
 
-la_ref <- read_csv(.args[8])
+ccg_ref <- read_csv(.args[8])
 
 world <- rnaturalearth::ne_countries(scale = 'large', returnclass = 'sf')
 uk <- rnaturalearth::ne_states(country = 'United Kingdom', returnclass = 'sf')
@@ -74,9 +74,11 @@ mob_clusters <- mob %>%
   left_join(label_map, by = c('date', 'end_quadkey' = 'quadkey')) %>% 
   rename(end_cluster = cluster) 
 
+first_trigger <- asm %>% filter(area == 'E38000097', value == 'trigger') %>% pull(date) %>% min()
+
 departure_connection <- mob_clusters %>% 
   filter(start_cluster %in% area_clusters) %>% 
-  filter(date >= first_trigger - 14 & date <= first_trigger) %>% 
+  #filter(date >= first_trigger - 14 & date <= first_trigger) %>% 
   group_by(date, start_cluster, end_cluster) %>% 
   summarise(n_crisis = sum(n_crisis)) %>% 
   group_by(date) %>% 
@@ -84,11 +86,15 @@ departure_connection <- mob_clusters %>%
 
 #get which local authorities are in the connection at a given time
 
-filter_label_map <- function(departure_connection){
+filter_label_map <- function(departure_connection, start_and_end = F){
   #extract all tiles in connected communities on a given day
   
-  departure_connection_clust <- departure_connection %>% pull(end_cluster)
-  
+  if (start_and_end){
+    departure_connection_clust <- unique(departure_connection %>% pull(end_cluster), departure_connection %>% pull(start_cluster))
+  } else {
+    departure_connection_clust <- departure_connection %>% pull(end_cluster)
+  }
+
   d <- departure_connection$date %>% unique()
   
   clusters <- label_map %>% filter(date == d, cluster %in% departure_connection_clust)
@@ -100,14 +106,14 @@ filter_label_map <- function(departure_connection){
   
 }
 
-la_intersection <- function(departure_connection){
+ccg_intersection <- function(departure_connection){
   #get the local authority names of intersecting tiles 
   
   clusters <- filter_label_map(departure_connection)
   
   clusters <- clusters %>% 
-    left_join(la_ref, by = c('quadkey')) %>% 
-    select(quadkey, date, cluster, lad17cd, n_crisis) 
+    left_join(ccg_ref, by = c('quadkey')) %>% 
+    select(quadkey, date, cluster, ccg18cd, n_crisis) 
     
   
   return(clusters)
@@ -116,9 +122,9 @@ la_intersection <- function(departure_connection){
 }
 
 
-plot_timepoint = function(departure_connection){
+plot_timepoint = function(departure_connection, start_and_end = F){
   
-  clusters <- filter_label_map(departure_connection)
+  clusters <- filter_label_map(departure_connection, start_and_end)
   
   d <- departure_connection$date %>% unique()
   
@@ -128,14 +134,14 @@ plot_timepoint = function(departure_connection){
   
 }
 
-p <- lapply(departure_connection, plot_timepoint)
+p <- lapply(departure_connection[1:10], plot_timepoint, start_and_end = T)
 
 p <- cowplot::plot_grid(plotlist = p)
 
 
 departure_connection
 
-la_intersections <- lapply(departure_connection, la_intersection) 
+ccg_intersections <- lapply(departure_connection, ccg_intersection) 
 lm_filter <- lapply(departure_connection, filter_label_map) 
 
 clust_levels <- do.call(rbind, departure_connection) %>% 
@@ -143,16 +149,12 @@ clust_levels <- do.call(rbind, departure_connection) %>%
   summarise(n_crisis = sum(n_crisis), .groups = 'drop') %>% arrange(-n_crisis) %>% 
   pull(end_cluster)
 
-connections <- do.call(rbind, la_intersections) %>% 
-  group_by(cluster, lad17cd) %>% 
-  summarise(n_crisis = unique(n_crisis), .groups = 'drop') %>% 
+connections <- do.call(rbind, ccg_intersections) %>% 
+  group_by(cluster, ccg18cd) %>% 
+  summarise(n_crisis = sum(n_crisis), .groups = 'drop') %>% 
   mutate(n_crisis_rank = rank(n_crisis))
 
 connections$cluster <- factor(connections$cluster, levels = clust_levels)
-
-first_trigger <- asm %>% filter(area == 'E06000016', value == 'trigger') %>% pull(date) %>% min()
-
-date_arrival %>% pull(area) %>% unique() %>% length()
 
 date_arrival <- asm %>% 
   filter(date > first_trigger) %>% 
@@ -161,7 +163,7 @@ date_arrival <- asm %>%
   summarise(min_date = min(date), .groups = 'drop') %>% 
   mutate(days_from = as.numeric(min_date - first_trigger))
 
-p2 <- connections %>% left_join(date_arrival, by = c('lad17cd' = 'area')) %>% 
+p2 <- connections %>% left_join(date_arrival, by = c('ccg18cd' = 'area')) %>% 
   replace_na() %>% 
   ggplot() + 
   geom_point(aes(x = n_crisis_rank, y = days_from)) + 
@@ -170,7 +172,7 @@ p2 <- connections %>% left_join(date_arrival, by = c('lad17cd' = 'area')) %>%
   ylab('Days from first Leicester trigger')
 
 
-p2 <- connections %>% left_join(date_arrival, by = c('lad17cd' = 'area')) %>% 
+p2 <- connections %>% left_join(date_arrival, by = c('ccg18cd' = 'area')) %>% 
   ggplot() + 
   geom_boxplot(aes(x = cluster, y = days_from)) + 
   geom_jitter(aes(x = cluster, y = days_from)) + 
@@ -180,11 +182,11 @@ p2 <- connections %>% left_join(date_arrival, by = c('lad17cd' = 'area')) %>%
   ylab('Days from first Leicester trigger') + 
   xlab('Community (ranked by connection to Leicester, Left:High, Right:Low)')
 
-la_simple <- la %>% st_simplify(dTolerance = 100) %>% 
+ccg_simple <- ccg %>% st_simplify(dTolerance = 1000) %>% 
   st_transform(4326)
 
-p_conn <- la_simple %>% 
-  left_join(connections %>% filter(n_crisis_rank > 32), by = c('lad19cd' = 'lad17cd')) %>% 
+p_conn <- ccg_simple %>% 
+  left_join(connections, by = c('ccg18cd' = 'ccg18cd')) %>% 
   #replace_na(list(n_crisis = 0)) %>% 
   ggplot() + 
   geom_sf(aes(fill = n_crisis), size= 0.1, color = 'black') + 
@@ -329,12 +331,12 @@ asm_date <- asm %>%
 
 plot_trigger <- function(asm_date){
   
-  p <- la_simple %>% 
-    left_join(asm_date, by = c('lad19cd' = 'area')) %>% 
+  p <- ccg_simple %>% 
+    left_join(asm_date, by = c('ccg18cd' = 'area')) %>% 
     drop_na(value) %>% 
     ggplot() + 
     geom_sf(aes(fill = value), size= 0.1, color = 'black') + 
-    scale_fill_manual(values = c('normal' = 'lightblue', 'trigger' = 'red')) + 
+    scale_fill_manual(values = c('normal' = 'lightblue', 'trigger' = 'red', 'nodata' = 'white', 'insuffdata' = 'lightgrey')) + 
     labs(fill = 'Days from\nfirst Leicester\ntrigger') + 
     theme_void() + 
     theme(legend.position = c(0.15, 0.5)) + 

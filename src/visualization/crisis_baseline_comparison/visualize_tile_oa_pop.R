@@ -29,7 +29,13 @@ tiles <- st_read(.args[3]) %>%
 
 a3 <- read_csv(.args[4])
 
+cases <- readr::read_csv('/Users/hamishgibbs/Downloads/download (15)') %>% 
+  filter(countriesAndTerritories == 'United_Kingdom') %>% 
+  mutate(dateRep = lubridate::dmy(dateRep))
+
 world <- rnaturalearth::ne_countries(scale = 'large', returnclass = 'sf')
+
+ylab <- c(13, 13.5, 14, 14.5, 15, 15.5, 16, 16.5)
 
 p_tot <- mob %>% 
   mutate(date_time = as.Date(date_time)) %>% 
@@ -38,7 +44,19 @@ p_tot <- mob %>%
   filter(date_time <= as.Date('2020-09-10')) %>% 
   ggplot() + 
   geom_path(aes(x = date_time, y = n_crisis)) + 
-  ylab('Facebook users') + 
+  geom_vline(aes(xintercept = as.Date('2020-03-23'))) +
+  annotate("text", x = as.Date('2020-03-23') + 2, y = 14e6, label = "National stay\nat home\norder", hjust = 0) + 
+  geom_vline(aes(xintercept = as.Date('2020-05-10'))) +
+  annotate("text", x = as.Date('2020-05-10') + 2, y = 15.8e6, label = '"Stay Aware"\nguidance', hjust = 0) + 
+  geom_vline(aes(xintercept = as.Date('2020-06-29'))) + 
+  annotate("text", x = as.Date('2020-06-29') - 2, y = 13.7e6, label = "Leicester local\nrestrictions", hjust = 1) + 
+  geom_vline(aes(xintercept = as.Date('2020-07-04'))) + 
+  annotate("text", x = as.Date('2020-07-04') + 2, y = 15e6, label = "Relaxation\nof restrictions", hjust = 0) + 
+  ylab('Facebook movements') + 
+  scale_y_continuous(labels = paste0(ylab, "M"),
+                     breaks = 10^6 * ylab,
+                     limits = c(13 * 10^6, 16.5 * 10^6)
+  ) + 
   theme_bw() + 
   plot_default_theme + 
   theme(plot.margin = unit(c(0,1.5,0,0), "cm"), 
@@ -54,17 +72,23 @@ inter_mob <- mob %>%
   drop_na(pop) %>% 
   mutate(pop_ratio = n_crisis / pop)
 
-#needs arrow pointing to median
-p_dens <- inter_mob %>% 
+p_dens_data <- inter_mob %>% 
   left_join(a3, by = c('start_quadkey' = 'quadkey')) %>% 
-  drop_na(NAME_1) %>% 
+  drop_na(NAME_1) 
+
+levs <- p_dens_data %>% group_by(NAME_1) %>% summarise(m = median(pop_ratio * 100)) %>% arrange(-m) %>% pull(NAME_1)
+
+p_dens_data$NAME_1 <- factor(p_dens_data$NAME_1, levels = levs)
+
+#needs arrow pointing to median
+p_dens <- p_dens_data %>% 
   ggplot() + 
-  geom_vline(aes(xintercept = median(inter_mob %>% pull(pop_ratio) * 100)), linetype = 'dashed', size = 0.1) + 
-  geom_density(aes(x = pop_ratio * 100, group = NAME_1, color = NAME_1)) + 
-  scale_color_discrete_qualitative('Harmonic') + 
+  geom_vline(aes(xintercept = median(inter_mob %>% pull(pop_ratio))), linetype = 'dashed', size = 0.1) + 
+  geom_density(aes(x = pop_ratio, group = NAME_1, color = NAME_1)) + 
+  scale_color_manual(values = c('#b15928', '#1f78b4', '#ff7f00', '#33a02c')) + 
   labs(color = 'Country') + 
-  ylab('Density of total tiles') + 
-  xlab('% Facebook users') +
+  ylab('Distribution of cells') + 
+  xlab('Facebook user ratio') +
   theme_bw() + 
   plot_default_theme + 
   theme(legend.position = c(0.65, 0.7),
@@ -76,10 +100,12 @@ p_dens <- inter_mob %>%
 
 p_pt <- inter_mob %>% 
   ggplot() + 
-  geom_point(aes(x = log(pop, 10), y = log(n_crisis, 10)), size = 0.01) + 
+  geom_point(aes(x = log(pop, 10), y = log(n_crisis, 10)), size = 0.01, alpha = 0.4) + 
   geom_abline(aes(intercept = 0, slope = 1), linetype = 'dashed', size = 0.5) + 
-  xlim(1.8, 6) + 
-  ylim(0.5, 6) + 
+  geom_hline(aes(yintercept = log(10, 10)), linetype = 'dashed', size = 0.2, color = 'red') + 
+  annotate("text", x = 2, y = 0.6, label = 'Censoring threshold', hjust = 0) + 
+  xlim(0, 6) + 
+  ylim(0, 6) + 
   ylab('N Facebook users (log)') + 
   xlab('Population (log)') + 
   theme_bw() + 
@@ -93,12 +119,13 @@ p_map <- tiles %>%
   left_join(inter_mob, by = c('quadkey' = 'start_quadkey')) %>% 
   drop_na(pop) %>% 
   ggplot() + 
-  geom_sf(aes(fill = pop_ratio * 100), size = 0) + 
-  scale_fill_continuous_sequential('BluGrn') + 
+  geom_sf(data = world, size = 0.2, colour = 'black', fill = '#E0E0E0') + 
+  geom_sf(aes(fill = pop_ratio), size = 0) + 
+  viridis::scale_fill_viridis(direction = -1, limits = c(0, 0.31)) + 
   geom_sf(data = world, size = 0.2, colour = 'black', fill = 'transparent') + 
   xlim(-8, 2) + 
   ylim(50.4, 58.4) +
-  labs(fill = '% Facebook\nusers') + 
+  labs(fill = 'Facebook\nuser ratio') + 
   theme_bw() + 
   plot_default_theme + 
   theme(legend.position = c(0.8, 0.8),
@@ -107,6 +134,7 @@ p_map <- tiles %>%
         plot.margin = unit(c(0,0,0,0), "cm"),
         text = element_text(size = 10)) + 
   ggtitle('d')
+
 #this needs another panel
 title <- cowplot::ggdraw() +
   cowplot::draw_label("a", x = 0, hjust = 0) + theme(plot.margin = margin(0, 0, 7, 55))

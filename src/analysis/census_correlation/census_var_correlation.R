@@ -38,7 +38,6 @@ tiles <- st_read(.args[6]) %>%
   st_set_crs(4326)
 
 inter_mob <- mob %>% 
-  #filter(date <= as.Date('2020-07-01')) %>% 
   filter(start_quadkey == end_quadkey) %>% 
   group_by(start_quadkey) %>% 
   summarise(n_crisis = median(n_crisis, na.rm = T), .groups = 'drop') %>% 
@@ -49,7 +48,7 @@ inter_mob <- mob %>%
 qk_dens <- tiles %>% 
   left_join(inter_mob, by = c('quadkey' = 'start_quadkey')) %>% 
   drop_na(pop_ratio) %>% 
-  mutate(area = as.numeric(st_area(geometry))) %>% 
+  mutate(area = as.numeric(units::set_units(st_area(geometry), 'km^2'))) %>% 
   st_drop_geometry() %>% 
   mutate(pop_dens = pop / area) %>% 
   rename(quadkey_12 = quadkey) %>% 
@@ -98,20 +97,5 @@ ggsave(gsub('.png', '.pdf', tail(.args, 1)), p,
        width = 8.5, height = 6,
        units = 'in')
 
-reg_data <- inter_mob %>% 
-  left_join(qk_imd, by = c('start_quadkey' = 'quadkey_12')) %>% 
-  select(-X1, -country) %>% 
-  left_join(qk_age, by = c('start_quadkey' = 'quadkey_12')) %>% 
-  select(-X1, -country) %>% 
-  left_join(qk_eth, by = c('start_quadkey' = 'quadkey_12')) %>% 
-  select(-X1, -country) %>% 
-  left_join(qk_dens, by = c('start_quadkey' = 'quadkey_12')) %>% 
-  select(-X1)
-
-fit <- lm(pop_ratio ~ wm_imd_rank + wm_age + pop_dens, data=reg_data)
-summary(fit)
-
-influence(fit)
-plot(fit)
 
 
