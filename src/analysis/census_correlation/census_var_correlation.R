@@ -30,6 +30,7 @@ if(interactive()){
               paste0(path_data, 'quadkey_mean_age.csv'),
               paste0(path_data, 'quadkey_mean_perc_white.csv'),
               paste0(path_data, 'tiles_zoom_12.shp'))
+
 } else {
   .args <- commandArgs(trailingOnly = T)
 }

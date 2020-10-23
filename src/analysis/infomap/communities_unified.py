@@ -31,7 +31,7 @@ mob = select_uk_records(mob, a3)
 
 #%%
 #define custom date values here
-mob['date'] = [x.week for x in pd.to_datetime(mob['date'])]
+#mob['date'] = [x.week for x in pd.to_datetime(mob['date'])]
 #%%
 def chunks(lst, n):
     """Yield successive n-sized chunks from lst."""
@@ -48,9 +48,9 @@ def get_biweek_ref():
 
     return(r)
 
-biweek_ref = get_biweek_ref()
+#biweek_ref = get_biweek_ref()
 #%%
-mob['date'] = [biweek_ref[x] for x in mob['date']]
+#mob['date'] = [biweek_ref[x] for x in mob['date']]
 
 #%%
 interval = 'daily'
@@ -67,7 +67,8 @@ im = extract_communities_date(mob, communities_im, False)
 #%%
 sbm.to_csv('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/communities_biweek/communities_sbm.csv')
 lei.to_csv('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/communities_biweek/communities_lei.csv')
-im.to_csv('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/communities_biweek/communities_im.csv')
+#%%
+im.to_csv('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/infomap/infomap_full.csv')
 #%%
 
 

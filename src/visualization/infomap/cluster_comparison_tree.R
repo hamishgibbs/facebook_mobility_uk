@@ -10,8 +10,7 @@ if(interactive()){
   .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/infomap/label_map_test_norm.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/infomap/label_map_leiden_test_norm.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv')
+              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/cluster_algo_comparison.png')
 } else {
   .args <- commandArgs(trailingOnly = T)
 }
@@ -72,12 +71,12 @@ plot_n_daily <- function(im, ymin = 0, ymax = 200){
     ylim(ymin, ymax)
 }
 
-p1 <- community_tree(im, paste0('Infomap - ', n_daily_clusters_mean(im), ' average communities daily'))
-p2 <- community_tree(lei, paste0('Leiden - ', n_daily_clusters_mean(lei), ' average communities daily'))
+#p1 <- community_tree(im, paste0('Infomap - ', n_daily_clusters_mean(im), ' average communities daily'))
+#p2 <- community_tree(lei, paste0('Leiden - ', n_daily_clusters_mean(lei), ' average communities daily'))
 
-p <- cowplot::plot_grid(p1, p2, ncol = 1)
+#p <- cowplot::plot_grid(p1, p2, ncol = 1)
 
-p
+#p
 
 n_daily_clusters <- function(im){
   n_daily <- im %>% group_by(date, cluster) %>% 
@@ -94,6 +93,8 @@ n_daily_clusters_mean <- function(im){
   
   return(round(n_daily, 0))
 }
+
+p <- community_tree(im, paste0('Infomap - ', n_daily_clusters_mean(im), ' average communities daily'))
 
 ggsave('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/cluster_algo_comparison.png', p)
 

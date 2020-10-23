@@ -14,6 +14,9 @@ def read_mob_data(fn):
     
     mob = pd.read_csv(fn, dtype = {'start_quadkey':str, 'end_quadkey':str})
     
+    mob['start_quadkey'] = mob['start_quadkey'].apply(lambda x: '{0:0>12}'.format(x))
+    mob['end_quadkey'] = mob['end_quadkey'].apply(lambda x: '{0:0>12}'.format(x))    
+    
     return(mob)
 
 def read_a3_data(fn):
