@@ -4,16 +4,33 @@ suppressPackageStartupMessages({
   require(colorspace)
 })
 
-source('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/src/visualization/utils/plot_default_theme.R')
+username <- Sys.info()[["user"]]
+source(paste0('/Users/',username,'/Documents/GitHub/facebook_mobility_uk/src/visualization/utils/plot_default_theme.R'))
+path_data <- paste0('/Users/',username,'/Documents/GitHub/facebook_mobility_uk/data/')
+# source('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/src/visualization/utils/plot_default_theme.R')
+
+
+# if(interactive()){
+#   .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/mobility_hours.csv',
+#               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/oa_reference/tile_12_oa_pop.csv',
+#               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_imd.csv',
+#               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_mean_age.csv',
+#               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_mean_perc_white.csv',
+#               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp',
+#               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv',
+#               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/tile_census.png')
+# } else {
+#   .args <- commandArgs(trailingOnly = T)
+# }
 
 if(interactive()){
-  .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/mobility_hours.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/oa_reference/tile_12_oa_pop.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_imd.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_mean_age.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_mean_perc_white.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/tile_census.png')
+  .args <-  c(paste0(path_data, 'mobility_hours.csv'),
+              paste0(path_data, 'tile_12_oa_pop.csv'),
+              paste0(path_data, 'quadkey_imd.csv'),
+              paste0(path_data, 'quadkey_mean_age.csv'),
+              paste0(path_data, 'quadkey_mean_perc_white.csv'),
+              paste0(path_data, 'tiles_zoom_12.shp'))
+
 } else {
   .args <- commandArgs(trailingOnly = T)
 }
@@ -24,7 +41,14 @@ oa_pop <- read_csv(.args[2], col_types = cols()) %>%
   mutate(quadkey_12 = str_pad(quadkey_12, 12, pad = "0"))
 
 qk_imd <- read_csv(.args[3]) %>% 
-  mutate(quadkey_12 = str_pad(quadkey_12, 12, pad = "0"))
+  # the raw file loaded here contain the 'intermediated weighted average'
+  # this is not yet the ranking yet. more deprived places are characterised
+  # by a lower value. Thus to convert things into a ranking where the least
+  # deprived place are characterised by a small value, we ranked these average
+  # reversely.
+  mutate(quadkey_12 = str_pad(quadkey_12, 12, pad = "0")) %>% 
+  group_by(country) %>% 
+  mutate(wm_imd_rank = rank(desc(wm_imd_rank)))
 
 qk_age <- read_csv(.args[4]) %>% 
   mutate(quadkey_12 = str_pad(quadkey_12, 12, pad = "0"))
@@ -63,7 +87,7 @@ plot_comparison <- function(df, varname, ylab, p_index, log_10 = FALSE){
     geom <- geom_point(aes(x = pop_ratio * 100, y = !! sym(varname)), size = 0.1)
   }
   
-  p <- inter_mob %>% 
+    p <- inter_mob %>% 
     left_join(df, by = c('start_quadkey' = 'quadkey_12')) %>% 
     filter(pop_ratio < 1) %>% 
     ggplot() + 
@@ -81,6 +105,43 @@ plot_comparison <- function(df, varname, ylab, p_index, log_10 = FALSE){
   return(p)
 }
 
+plot_comparison <- function(df, varname, ylab, p_index, log_10 = FALSE){
+  
+  # if (log_10){
+  #   geom <- geom_point(aes(x = pop_ratio * 100, y = log(!! sym(varname), 10)), size = 0.1)
+  # } else {
+  #   geom <- geom_point(aes(x = pop_ratio * 100, y = !! sym(varname)), size = 0.1)
+  # }
+  
+  p <- inter_mob %>% 
+    left_join(df, by = c('start_quadkey' = 'quadkey_12')) %>% 
+    filter(pop_ratio < 1) %>% 
+    ggscatter(., 
+              x = "pop_ratio",
+              y = varname,
+              alpha = 0.1) +
+    # ggplot() + 
+    # geom +
+    scale_color_discrete_qualitative('Harmonic') + 
+    facet_wrap(~country, nrow = 2, scales = 'free') + 
+    theme_bw() + 
+    xlab('% Facebook users') +
+    ylab(ylab) +
+    plot_default_theme + 
+    theme(legend.position = 'none', 
+          plot.margin = margin(t = 0, r = 0, b = 0, l = 5, unit = "pt")) + 
+    ggtitle(p_index) +
+    stat_cor(label.y.npc = "top",
+             label.x.npc = "left",
+             size = 3,
+             p.accuracy = 0.001,
+             r.accuracy = 0.01,
+             color = "blue")
+  if (log_10) p <- p + scale_y_log10()
+  
+  return(p)
+}
+
 p_imd <- plot_comparison(qk_imd, 'wm_imd_rank', 'Tile Socioeconomic Deprivation', 'a')
 p_age <- plot_comparison(qk_age, 'wm_age', 'Tile Average Age', 'b')
 p_perc_white <- plot_comparison(qk_eth, 'wm_perc_white', 'Tile % Minority Ethnic', 'c')
@@ -88,13 +149,15 @@ p_pop_dens <- plot_comparison(qk_dens, 'pop_dens', 'Population Density (log)', '
 
 p <- cowplot::plot_grid(p_imd, p_age, p_perc_white, p_pop_dens, ncol = 2)
 
-ggsave(tail(.args, 1), p,
-       width = 8.5, height = 6,
-       units = 'in')
+ggsave(paste0('/Users/',username,'/Documents/GitHub/facebook_mobility_uk/src/analysis/census_correlation/correlation_plot.pdf'),
+       plot = p,
+       width = 8.5,
+       height = 6)
 
-ggsave(gsub('.png', '.pdf', tail(.args, 1)), p,
-       width = 8.5, height = 6,
-       units = 'in')
-
-
-
+# ggsave(tail(.args, 1), p,
+#        width = 8.5, height = 6,
+#        units = 'in')
+# 
+# ggsave(gsub('.png', '.pdf', tail(.args, 1)), p,
+#        width = 8.5, height = 6,
+#        units = 'in')
