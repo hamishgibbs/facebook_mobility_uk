@@ -25,4 +25,6 @@ for fn in fns:
     bar.next()
 
     
-pd.concat(mob).to_csv(argv[2])
+mob = pd.concat(mob)
+
+mob.to_csv(argv[2])

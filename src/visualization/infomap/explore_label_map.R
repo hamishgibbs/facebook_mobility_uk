@@ -1,6 +1,7 @@
 suppressPackageStartupMessages({
   require(sf)
   require(tidyverse)
+  require(RColorBrewer)
 })
 #most persistent cluster
 #largest cluster 
@@ -10,11 +11,11 @@ suppressPackageStartupMessages({
 source('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/src/visualization/utils/plot_clusters.R')
 
 if(interactive()){
-  .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/infomap/label_map_test_norm.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/infomap/label_map_leiden_test_norm.csv',
+  .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/infomap/label_map_test.csv',
+              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/infomap/label_map_leiden_test.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/label_map_geography_test.png')
+              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/label_map.png')
 } else {
   .args <- commandArgs(trailingOnly = T)
 }
@@ -30,6 +31,7 @@ a3 <- read_csv(.args[4])
 
 world <- rnaturalearth::ne_countries(scale = 'large', returnclass = 'sf')
 uk <- rnaturalearth::ne_states(country = 'United Kingdom', returnclass = 'sf')
+london <- c('City of London', 'Barking and Dagenham', 'Barnet', 'Bexley', 'Brent', 'Bromley', 'Camden', 'Croydon', 'Ealing', 'Enfield', 'Greenwich', 'Hackney', 'Hammersmith and Fulham', 'Haringey', 'Harrow', 'Havering', 'Hillingdon', 'Hounslow', 'Islington', 'Kensington and Chelsea', 'Kingston upon Thames', 'Lambeth', 'Lewisham', 'Merton', 'Newham', 'Redbridge', 'Richmond upon Thames', 'Southwark', 'Sutton', 'Tower Hamlets', 'Waltham Forest', 'Wandsworth', 'Westminster')
 
 #most persistent cluster
 get_cluster_persistence <- function(label_map){
@@ -45,16 +47,6 @@ get_cluster_persistence <- function(label_map){
 
 persistence <- get_cluster_persistence(label_map)
 persistence_lei <- get_cluster_persistence(label_map_lei)
-
-persistence %>% 
-  ggplot() + 
-  geom_density(aes(x = n_days_present)) + 
-  geom_density(data = persistence_lei, aes(x = n_days_present), color = 'red')
-
-persistence %>% 
-  ggplot() + 
-  geom_density(aes(x = log(n_days_present, 10))) + 
-  geom_density(data = persistence_lei, aes(x = log(n_days_present, 10)), color = 'red')
 
 longest_lasting <- persistence %>% 
   filter(n_days_present == max(n_days_present)) %>% 
@@ -123,19 +115,7 @@ p_lei <- plot_geography_intersection(label_map,
                                      8, 
                                      4)
 
-p_pers <- plot_clusters(most_persistent[[length(most_persistent)]], uk, 'a', uk_lims = T)
-
-p <- cowplot::plot_grid(p_pers, p_lei, p_lon, nrow = 1, rel_widths = c(0.5, 0.25, 0.25))
-fn <- '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/label_map.png'
-
-ggsave(fn, p,
-       width = 8.5, height = 6,
-       units = 'in')
-
-#try to put the snakey figure on top of this - 20 mins to try 16:00
-
-#plot persistent clusters, present on all days
-get_most_persistant <- function(label_map, longest_lasting){
+get_most_persistent <- function(label_map, longest_lasting){
   
   most_persistent <- label_map %>% 
     filter(cluster %in% longest_lasting) %>% 
@@ -148,10 +128,24 @@ get_most_persistant <- function(label_map, longest_lasting){
   
 }
 
-most_persistent <- get_most_persistant(label_map, longest_lasting)
-most_persistent_lei <- get_most_persistant(label_map_lei, longest_lasting_lei)
+most_persistent <- get_most_persistent(label_map, longest_lasting)
+most_persistent_lei <- get_most_persistent(label_map_lei, longest_lasting_lei)
 
-plot_clusters(most_persistent[[1]], uk, uk_lims = T)
+p_pers <- plot_clusters(most_persistent[[1]], uk, 'a', uk_lims = T)
+
+p <- cowplot::plot_grid(p_pers, p_lei, p_lon, nrow = 1, rel_widths = c(0.5, 0.25, 0.25))
+
+fn <- '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/label_map.png'
+
+ggsave(fn, p,
+       width = 8.5, height = 6,
+       units = 'in')
+
+ggsave(gsub('.png', '.pdf', fn), p,
+       width = 8.5, height = 6,
+       units = 'in')
+
+#try to put the snakey figure on top of this - 20 mins to try 16:00
 
 qualitative_pal <- function(names, rep_n = 3){
   
@@ -165,39 +159,29 @@ qualitative_pal <- function(names, rep_n = 3){
   
 }
 
-pal <- qualitative_pal(longest_lasting)
-pal_lei <- qualitative_pal(longest_lasting_lei)
+label_map <- label_map %>% 
+  group_by(date) %>% 
+  group_split()
 
-plot_national_geograpny <- function(df, pal, title = NULL){
-  
-  d <- tiles %>% 
-    left_join(df, by = c('quadkey')) %>% 
-    drop_na(cluster)
-  
-  date = d %>% pull(date) %>% unique()
-  
-  p <- d %>% 
-    ggplot() + 
-    geom_sf(aes(fill = cluster), size = 0.1, colour = 'black') + 
-    scale_fill_manual(values = pal) +
-    geom_sf(data = uk, size = 0.01, colour = 'black', fill = 'transparent') + 
-    geom_sf(data = world, size = 0.1, colour = 'black', fill = 'transparent') + 
-    xlim(-8, 2) + 
-    ylim(50.4, 58.4) +
-    theme_void() + 
-    ggtitle(paste0(title, format(date, "%a %b %d"))) + 
-    theme(legend.position = 'none')
-  
-  return(p)
-}
+label_map_lei <- label_map_lei %>% 
+  group_by(date) %>% 
+  group_split()
 
-p <- plot_national_geograpny(most_persistent[[1]], pal, 'Infomap most persistent ')
-p_lei <- plot_national_geograpny(most_persistent_lei[[1]], pal_lei, 'Leiden most persistent ')
+im <- label_map[[1]]
+lei <- label_map_lei[[1]]
+
+pal <- qualitative_pal(im$cluster, 100)
+pal_lei <- qualitative_pal(lei$cluster, 100)
+
+p <- plot_clusters(im, uk, title = paste0(unique(im$date), ' Infomap'))
+p_lei <- plot_clusters(lei, uk, title = paste0(unique(lei$date), ' Leiden'))
 
 p <- cowplot::plot_grid(p, p_lei)
 
-ggsave('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/label_map_most_persistent.png', p,
-       width = 8.5, height = 6,
+ggsave('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/method_comparison.png', p,
+       width = 6, height = 6,
        units = 'in')
 
-london <- c('City of London', 'Barking and Dagenham', 'Barnet', 'Bexley', 'Brent', 'Bromley', 'Camden', 'Croydon', 'Ealing', 'Enfield', 'Greenwich', 'Hackney', 'Hammersmith and Fulham', 'Haringey', 'Harrow', 'Havering', 'Hillingdon', 'Hounslow', 'Islington', 'Kensington and Chelsea', 'Kingston upon Thames', 'Lambeth', 'Lewisham', 'Merton', 'Newham', 'Redbridge', 'Richmond upon Thames', 'Southwark', 'Sutton', 'Tower Hamlets', 'Waltham Forest', 'Wandsworth', 'Westminster')
+ggsave('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/method_comparison.pdf', p,
+       width = 6, height = 6,
+       units = 'in')

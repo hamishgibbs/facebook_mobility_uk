@@ -19,7 +19,18 @@ if(interactive()){
   .args <- commandArgs(trailingOnly = T)
 }
 
-mob <- read_csv(.args[1])
+#check if missing data in late September
+mob <- read_csv(.args[1], col_types = cols(start_quadkey = col_character(), end_quadkey = col_character())) %>% 
+  mutate(date_time = as.Date(date_time)) %>% 
+  mutate(journey = paste0(start_quadkey, end_quadkey)) %>% 
+  select(journey, date_time, start_quadkey, end_quadkey, n_baseline, n_crisis)
+
+#change because old data is questionable
+#mob_old <- read_csv(.args[2], col_types = cols(start_quadkey = col_character(), end_quadkey = col_character())) %>% 
+#  mutate(date_time = as.Date(date_time)) %>% 
+#  filter(date_time < min(mob$date_time))
+#
+#mob <- rbind(mob, mob_old)
 
 oa_pop <- read_csv(.args[2], col_types = cols()) %>% 
   mutate(quadkey_12 = str_pad(quadkey_12, 12, pad = "0"))
@@ -41,7 +52,6 @@ p_tot <- mob %>%
   mutate(date_time = as.Date(date_time)) %>% 
   group_by(date_time) %>% 
   summarise(n_crisis = sum(n_crisis, na.rm = T)) %>%
-  filter(date_time <= as.Date('2020-09-10')) %>% 
   ggplot() + 
   geom_path(aes(x = date_time, y = n_crisis)) + 
   geom_vline(aes(xintercept = as.Date('2020-03-23'))) +
@@ -52,19 +62,18 @@ p_tot <- mob %>%
   annotate("text", x = as.Date('2020-06-29') - 2, y = 13.7e6, label = "Leicester local\nrestrictions", hjust = 1) + 
   geom_vline(aes(xintercept = as.Date('2020-07-04'))) + 
   annotate("text", x = as.Date('2020-07-04') + 2, y = 15e6, label = "Relaxation\nof restrictions", hjust = 0) + 
-  ylab('Facebook movements') + 
+  ylab('Movements') + 
   scale_y_continuous(labels = paste0(ylab, "M"),
                      breaks = 10^6 * ylab,
                      limits = c(13 * 10^6, 16.5 * 10^6)
   ) + 
   theme_bw() + 
   plot_default_theme + 
-  theme(plot.margin = unit(c(0,1.5,0,0), "cm"), 
+  theme(plot.margin = unit(c(0,1.2,0,0), "cm"),
         text = element_text(size = 12),
         axis.title.x = element_blank())
 
 inter_mob <- mob %>% 
-  #filter(date <= as.Date('2020-07-01')) %>% 
   filter(start_quadkey == end_quadkey) %>% 
   group_by(start_quadkey) %>% 
   summarise(n_crisis = median(n_crisis, na.rm = T), .groups = 'drop') %>% 
@@ -84,18 +93,18 @@ p_dens_data$NAME_1 <- factor(p_dens_data$NAME_1, levels = levs)
 p_dens <- p_dens_data %>% 
   ggplot() + 
   geom_vline(aes(xintercept = median(inter_mob %>% pull(pop_ratio))), linetype = 'dashed', size = 0.1) + 
-  geom_density(aes(x = pop_ratio, group = NAME_1, color = NAME_1)) + 
+  geom_density(aes(x = pop_ratio * 100, group = NAME_1, color = NAME_1)) + 
   scale_color_manual(values = c('#b15928', '#1f78b4', '#ff7f00', '#33a02c')) + 
   labs(color = 'Country') + 
-  ylab('Distribution of cells') + 
-  xlab('Facebook user ratio') +
+  ylab('Frequency') + 
+  xlab('Percent Population') +
   theme_bw() + 
   plot_default_theme + 
   theme(legend.position = c(0.65, 0.7),
         legend.title = element_blank(),
         plot.margin = unit(c(0,0,0,0), "cm"),
         text = element_text(size = 12),
-        axis.title.y = element_text(margin = margin(0, 0.7, 0, 0, 'cm'))) + 
+        axis.title.y = element_text(margin = margin(0, 0.4, 0, 0, 'cm'))) + 
   ggtitle('b')
 
 p_pt <- inter_mob %>% 
@@ -106,21 +115,33 @@ p_pt <- inter_mob %>%
   annotate("text", x = 2, y = 0.6, label = 'Censoring threshold', hjust = 0) + 
   xlim(0, 6) + 
   ylim(0, 6) + 
-  ylab('N Facebook users (log)') + 
-  xlab('Population (log)') + 
+  ylab(expression(N~Facebook~users~log[10])) + 
+  xlab(expression(Population~log[10])) + 
+  #xlab('Population (log)') + 
   theme_bw() + 
   plot_default_theme + 
-  theme(plot.margin = unit(c(0,0,0,0), "cm"), 
+  theme(plot.margin = unit(c(0,0,0, 0), "cm"), 
         text = element_text(size = 12),
-        axis.title.y = element_text(margin = margin(0, 1.2, 0, 0, 'cm'))) + 
+        axis.title.y = element_text(margin = margin(0, 0.8, 0, 0, 'cm'))) + 
   ggtitle('c')
+
+swindon <- tiles %>% 
+  filter(quadkey %in% c(a3 %>% filter(NAME_2 %in% c('Wiltshire', 'Gloucestershire', 'Oxfordshire', 'Berkshire')) %>% pull(quadkey))) %>% 
+  st_bbox() %>% 
+  st_as_sfc()
+
+high <- tiles %>% 
+  left_join(inter_mob, by = c('quadkey' = 'start_quadkey')) %>% 
+  filter(pop_ratio > 0.31)
 
 p_map <- tiles %>% 
   left_join(inter_mob, by = c('quadkey' = 'start_quadkey')) %>% 
   drop_na(pop) %>% 
   ggplot() + 
   geom_sf(data = world, size = 0.2, colour = 'black', fill = '#E0E0E0') + 
-  geom_sf(aes(fill = pop_ratio), size = 0) + 
+  geom_sf(data = swindon, fill = 'blue') + 
+  geom_sf(aes(fill = pop_ratio), size = 0.05) + 
+  geom_sf(data = high, fill = 'red', size = 0.05) + 
   viridis::scale_fill_viridis(direction = -1, limits = c(0, 0.31)) + 
   geom_sf(data = world, size = 0.2, colour = 'black', fill = 'transparent') + 
   xlim(-8, 2) + 
@@ -148,10 +169,10 @@ p <- cowplot::plot_grid(p_tot, p, rel_heights = c(0.2, 0.8), nrow = 2)
 p <- cowplot::plot_grid(title, p, rel_heights = c(0.05, 1), nrow = 2)
 
 ggsave(tail(.args, 1), p,
-       width = 8, height = 7,
+       width = 8, height = 7.2,
        units = 'in')
 
 ggsave(gsub('png', 'pdf', tail(.args, 1)), p,
-       width = 8.5, height = 2,
+       width = 8, height = 7.2,
        useDingbats = F,
        units = 'in')

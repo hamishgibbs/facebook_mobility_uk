@@ -10,7 +10,7 @@ plot_bank_holidays <- function(){
                      as.Date('2020-12-26'),
                      as.Date('2020-12-28'))
   
-  bh <- geom_vline(xintercept = bank_holidays, size = 0.7, colour = 'blue', alpha = 0.5)
+  bh <- geom_vline(xintercept = bank_holidays, size = 1, colour = 'blue', alpha = 0.5)
   
   return(bh)
   

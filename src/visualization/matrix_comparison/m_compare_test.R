@@ -7,17 +7,13 @@ source('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/src/visualiza
 
 if(interactive()){
   .args <-  c('/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/canberra_distance/c_dist_test.csv',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/matrix_comparison.png')
+              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/matrix_comparison.rds')
 } else {
   .args <- commandArgs(trailingOnly = T)
 }
 
 m_compare <- read_csv(.args[1])
 
-m_compare %>% 
-  ggplot() + 
-  geom_density(aes(x = c_dist))
 
 p <- m_compare %>% 
   ggplot() + 
@@ -30,8 +26,10 @@ p <- m_compare %>%
 
 p 
 
-write_rds(p, '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/matrix_comparison.rdf')
+plotly::ggplotly(p)
 
-ggsave(tail(.args, 1), p,
-       width = 6, height = 5,
+ggsave('/Users/hamishgibbs/Downloads/canberra.png', p,
+       width = 4, height = 3,
        units = 'in')
+
+write_rds(p, tail(.args, 1))

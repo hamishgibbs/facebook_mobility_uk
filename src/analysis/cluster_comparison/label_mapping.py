@@ -19,30 +19,13 @@ For any modules competing to be labelled as a certain module, the larger module 
 
 """
 
-import sys
-import __main__ as main
-import pandas as pd
 import uuid
 import operator
 import random
 import numpy as np
+import pandas as pd
 
-#%%
-if not hasattr(main, '__file__'):
-    argv = ['code', '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/infomap/leiden_full_norm.csv',
-            '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv',
-            '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/interim/infomap/label_map_leiden_test_norm.csv']
-else:
-    argv = sys.argv
-#%%
-im = pd.read_csv(argv[1], index_col = 0)
-im['quadkey'] = ['{0:012d}'.format(n) for n in im['quadkey']]
-a3 = pd.read_csv(argv[2])
 
-im = im.groupby('date')    
-im = [im.get_group(x) for x in im.groups]
-
-#%%
 def init_mapping(t0):
     #initialize - map labels to a unique id
     clusters = list(t0['cluster'].unique())
@@ -249,43 +232,4 @@ def map_clusters(cluster_maps, t1):
 
     return(t1)
 
-#%%
-'''
-apply method to each timestep
-
-issue is that a module in time t0 could equally be assigned to >1 modules in t1
-
-'''
-
-for i, date in enumerate(im):        
-    
-    if i > 0:
-        t0 = im[i - 1]
-        t1 = im[i]
-        
-        if i == 1:
-            t0 = init_mapping(t0)
-        
-        t0_cluster_ref = t0.groupby('cluster')['quadkey'].apply(list).to_dict()
-        t1_cluster_ref = t1.groupby('cluster')['quadkey'].apply(list).to_dict()
-        
-            
-        #need t0_modules and t1_module variables. Dict with list of nodes
-        
-        cluster_maps = compute_shared_nodes(t0, t1, t0_cluster_ref, t1_cluster_ref)
-        
-        cluster_maps = arbitrate_duplicate_assignment(cluster_maps, t0_cluster_ref, t1_cluster_ref)
-        
-        im[i] = map_clusters(cluster_maps, t1)
-        
-    
-    #if i > 5:
-    #    break
-    print("{}% Done.".format(round((i / len(im)) * 100, 2)))
-        
-im_mapped = pd.concat(im)
-
-assert sum([len(str(x)) < 10 for x in im_mapped['cluster']]) == 0
-
-im_mapped.to_csv(argv[-1])
 

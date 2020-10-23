@@ -13,7 +13,6 @@ if(interactive()){
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_mean_age.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/imd_reference/quadkey_mean_perc_white.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/tile_reference/tiles_zoom_12.shp',
-              '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/data/processed/la_reference/a3_tile_reference.csv',
               '/Users/hamishgibbs/Documents/Covid-19/facebook_mobility_uk/reports/figures/tile_census.png')
 } else {
   .args <- commandArgs(trailingOnly = T)

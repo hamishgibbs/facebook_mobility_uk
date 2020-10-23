@@ -14,7 +14,7 @@ plot_weekends <- function(data){
           weekend = ifelse(day %in% c('Saturday', 'Sunday'), T, F)) %>% 
     filter(day == 'Saturday')
   
-  w <- 200 / date_seq %>% length()
+  w <- 250 / date_seq %>% length()
 
   date_polys <- c()
   
